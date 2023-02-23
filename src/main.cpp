@@ -1,214 +1,186 @@
+/* Copyright(C) Kacper Tomaszewski */
+
 #include <SFML/Graphics.hpp>
-#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <vector>
 
-//constexpr unsigned int SCREEN_WIDTH = 1280;
-//constexpr unsigned int SCREEN_HEIGHT = 720;
-
 struct WindowInformation
 {
-    std::string name;
-    int width;
-    int height;
+    int Width;
+    int Height;
 };
 
 struct MovementSpeed
 {
-    float x;
-	float y;
+    float X;
+	float Y;
+};
+
+// The Shape class will store the different shapes as pointers with their respective movement speeds and texts
+class Shape
+{
+public:
+    Shape(const std::shared_ptr<sf::Shape>& shape, const std::shared_ptr<MovementSpeed>& speed, const sf::Text& text)
+    {
+        mShape = shape;
+        mSpeed = speed;
+        mName = text;
+    }
+
+	std::shared_ptr<sf::Shape> GetShape()
+    {
+        return mShape;
+    }
+
+    sf::Text* GetName()
+    {
+        return &mName;
+    }
+
+    std::shared_ptr<MovementSpeed> GetSpeed()
+    {
+        return mSpeed;
+    }
+
+private:
+    std::shared_ptr<sf::Shape> mShape;
+    sf::Text mName;
+    std::shared_ptr<MovementSpeed> mSpeed;
 };
 
 int main(int argc, char* argv[])
 {
+    // Variables to store the information taken from the config file
+    std::string first, name, file;
+    sf::Font myFont;
+    int fSize, r, g, b;
+    sf::Color fColor;
+    float initX, initY, speedX, speedY, radius, width, height;
+
     // Load in the config file
     std::fstream fin("bin/config.txt");
 
     // The window will always be the first item in the list
-    WindowInformation wInfo;
-    fin >> wInfo.name >> wInfo.width >> wInfo.height;
+    WindowInformation wInfo{};
+    fin >> first >> wInfo.Width >> wInfo.Height;
 
-    // Create the SFML window with the width, height and name taken from the config file
-    sf::RenderWindow window(sf::VideoMode(wInfo.width, wInfo.height), wInfo.name);
+    // Create the SFML window with the Width, Height and name taken from the config file
+    sf::RenderWindow window(sf::VideoMode(wInfo.Width, wInfo.Height),"SFML Assignment 1");
 
     /* From now on the order can be random, so we loop throughand check which object we do have */
-
-    sf::Font myFont;
-
     // create vectors to hold the given shapes, their speeds and their names
-    std::vector<std::shared_ptr<sf::Shape>> shapes;
-    std::vector<sf::Text> names;
-    std::vector<MovementSpeed> speeds;
-
-    std::string first, name, file;
-    int fSize, R, G, B;
-    sf::Color fColor;
-    float initX, initY, speedX, speedY, radius, width, height;
-
+    std::vector<Shape> shapes;
 
     while (fin >> first)
     {
+        /* Depending on the first word in the config file, decide what to do and what information to take in */
+
         if (first == "Font")
         {
-            fin >> file >> fSize >> R >> G >> B;
+            fin >> file >> fSize >> r >> g >> b;
             if (!myFont.loadFromFile("bin/" + file))
             {
                 std::cerr << "Error while loading the font file\n";
                 exit(-1);
             }
-            fColor = sf::Color(R, G, B);
+            fColor = sf::Color(r, g, b);
         }
         else if (first == "Circle")
         {
-            fin >> name >> initX >> initY >> speedX >> speedY >> R >> G >> B >> radius;
-            sf::Color color(R, G, B);
+            fin >> name >> initX >> initY >> speedX >> speedY >> r >> g >> b >> radius;
+            // Create the shape and add color to it
+            sf::Color color(r, g, b);
             sf::CircleShape circle(radius);
             circle.setFillColor(color);
             circle.setPosition(initX, initY);
 
-            MovementSpeed speed{ speedX, speedY };
-            speeds.push_back(speed);
+            // Create a MovementSpeed object
+            auto speed = std::make_shared<MovementSpeed>();
+            speed->X = speedX;
+            speed->Y = speedY;
 
+            // Create the text and adjust the origin of the text to center it in the shape
             sf::Text text(name, myFont, fSize);
             text.setFillColor(fColor);
-            text.setOrigin(circle.getLocalBounds().left, circle.getLocalBounds().top);
-            text.setPosition(circle.getGlobalBounds().top + circle.getGlobalBounds().height / 2.f, circle.getGlobalBounds().left + circle.getGlobalBounds().width / 2.f);
+            const sf::FloatRect bounds(text.getGlobalBounds());
+            sf::Vector2f numRectCenter(bounds.width / 2.f + bounds.left, bounds.height / 2.f + bounds.top);
+            text.setOrigin(numRectCenter);
+            text.setPosition(initX + circle.getLocalBounds().width / 2.f, initY + circle.getLocalBounds().height / 2.f);
 
-            names.push_back(text);
+            // Create a shape class pointer with the created objects and push it to the vector
             std::shared_ptr<sf::Shape> tmp = std::make_shared<sf::CircleShape>(circle);
-            shapes.push_back(tmp);
-
-            window.draw(circle);
-            window.draw(text);
+            Shape tmp2(tmp, speed, text);
+            shapes.push_back(tmp2);
         }
     	else if (first == "Rectangle")
         {
-            fin >> name >> initX >> initY >> speedX >> speedY >> R >> G >> B >> width >> height;
-            sf::Color color(R, G, B);
+            fin >> name >> initX >> initY >> speedX >> speedY >> r >> g >> b >> width >> height;
+            // Create the shape and add color to it
+            sf::Color color(r, g, b);
             sf::RectangleShape rect(sf::Vector2f(width, height));
             rect.setFillColor(color);
             rect.setPosition(initX, initY);
 
-            MovementSpeed speed{ speedX, speedY };
-            speeds.push_back(speed);
+            // Create a MovementSpeed object
+            auto speed = std::make_shared<MovementSpeed>();
+            speed->X = speedX;
+            speed->Y = speedY;
 
+            // Create the text and adjust the origin of the text to center it in the shape
             sf::Text text(name, myFont, fSize);
             text.setFillColor(fColor);
-            text.setOrigin(rect.getLocalBounds().left, rect.getLocalBounds().top);
-            text.setPosition(rect.getGlobalBounds().top + rect.getGlobalBounds().height / 2.f, rect.getGlobalBounds().left + rect.getGlobalBounds().width / 2.f);
+            const sf::FloatRect bounds(text.getGlobalBounds());
+            sf::Vector2f numRectCenter(bounds.width / 2.f + bounds.left, bounds.height / 2.f + bounds.top);
+            text.setOrigin(numRectCenter);
+            text.setPosition(initX + rect.getLocalBounds().width / 2.f, initY + rect.getLocalBounds().height / 2.f);
 
-            names.push_back(text);
+            // Create a shape class pointer with the created objects and push it to the vector
             std::shared_ptr<sf::Shape> tmp = std::make_shared<sf::RectangleShape>(rect);
-            shapes.push_back(tmp);
-
-            window.draw(rect);
-            window.draw(text);
+            Shape tmp2(tmp, speed, text);
+            shapes.push_back(tmp2);
         }
     }
 
-    window.display();
-
+    // Game loop
     while (window.isOpen())
     {
-        sf::Event event;
+        // Event polling
+        sf::Event event{};
         while (window.pollEvent(event))
         {
             if (event.type == sf::Event::Closed)
                 window.close();
         }
 
-        for (size_t i = 0; i < shapes.size(); i++)
+        // Update the positions of the shapes and their texts
+        for (auto& shape : shapes)
         {
-	        if (shapes[i]->getGlobalBounds().top < 0 || shapes[i]->getGlobalBounds().top + shapes[i]->getGlobalBounds().height >= wInfo.height)
+	        if (shape.GetShape()->getGlobalBounds().top < 0 || shape.GetShape()->getGlobalBounds().top + shape.GetShape()->getGlobalBounds().height >= wInfo.Height)
 	        {
-                speeds[i].y *= -1.0f;
+                shape.GetSpeed()->Y *= -1.0f;
 	        }
-            if (shapes[i]->getGlobalBounds().left < 0 || shapes[i]->getGlobalBounds().left + shapes[i]->getGlobalBounds().width >= wInfo.width)
+        	else if (shape.GetShape()->getGlobalBounds().left < 0 || shape.GetShape()->getGlobalBounds().left + shape.GetShape()->getGlobalBounds().width >= wInfo.Width)
             {
-                speeds[i].x *= -1.0f;
+                shape.GetSpeed()->X *= -1.0f;
             }
 
-            shapes[i]->setPosition(shapes[i]->getPosition().x + speeds[i].x, shapes[i]->getPosition().y + speeds[i].y);
-            names[i].setPosition(round((shapes[i]->getGlobalBounds().left + shapes[i]->getGlobalBounds().width / 2.5f)), round((shapes[i]->getGlobalBounds().top + shapes[i]->getGlobalBounds().height / 2.5f)));
-
+            shape.GetShape()->setPosition(shape.GetShape()->getPosition().x + shape.GetSpeed()->X,
+                shape.GetShape()->getPosition().y + shape.GetSpeed()->Y);
+            shape.GetName()->setPosition(shape.GetShape()->getPosition().x + shape.GetShape()->getLocalBounds().width / 2.f,
+                shape.GetShape()->getPosition().y + shape.GetShape()->getLocalBounds().height / 2.f);
         }
 
+        // Update the window
         window.clear();
-        for (size_t i = 0; i < shapes.size(); i++)
+        for (auto& shape : shapes)
         {
-            window.draw(*shapes[i]);
-            window.draw(names[i]);
+            window.draw(*shape.GetShape());
+            window.draw(*shape.GetName());
         }
         window.display();
     }
-
-    /* SFML test code -- ignore all of it
-    sf::RenderWindow window(sf::VideoMode(SCREEN_WIDTH, SCREEN_HEIGHT), "SFML works!");
-    window.setFramerateLimit(60);
-
-
-    sf::CircleShape circle(50);
-    circle.setFillColor(sf::Color::Green);
-    circle.setPosition(300, 300);
-    float circleMovementSpeed = 0.5f;
-
-    std::vector<sf::RectangleShape> rectangles;
-
-    sf::Font myFont;
-
-    if (!myFont.loadFromFile("bin/fonts/tech.ttf"))
-    {
-        std::cerr << "Error while loading the font file\n";
-        exit(-1);
-    }
-
-    sf::Text text("Sample Text", myFont, 24);
-    text.setPosition(0, SCREEN_HEIGHT - (float)text.getCharacterSize() - 5);
-
-
-    for (int x = 0; x < 25; x++)
-    {
-        for (int y = 0; y < 15; y++)
-        {
-            sf::RectangleShape rect(sf::Vector2f(15, 15));
-            rect.setPosition(x * 20, y * 20);
-            rect.setFillColor(sf::Color(x * 10, y * 10, 0));
-            rectangles.push_back(rect);
-        }
-    }
-
-    while (window.isOpen())
-    {
-        sf::Event event;
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed)
-                window.close();
-
-            if (event.type == sf::Event::KeyPressed)
-            {
-                std::cout << "Key pressed with code: " << event.key.code << '\n';
-
-                if (event.key.code == sf::Keyboard::X)
-                {
-                    circleMovementSpeed *= -1.0f;
-                }
-            }
-        }
-
-        circle.setPosition(circle.getPosition().x + circleMovementSpeed, circle.getPosition().y + circleMovementSpeed);
-
-        window.clear();
-        for (const auto& rect : rectangles)
-        {
-            window.draw(rect);
-        }
-        window.draw(circle);
-        window.draw(text);
-        window.display();
-    }*/
 
     return 0;
 }
